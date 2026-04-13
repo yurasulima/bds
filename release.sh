@@ -13,8 +13,7 @@ RELEASED=0
 while IFS= read -r BDS_VERSION || [[ -n "$BDS_VERSION" ]]; do
     [[ -z "$BDS_VERSION" ]] && continue
 
-    # x.y.z.w -> x.y.z
-    TAG="v$(echo "$BDS_VERSION" | cut -d. -f1-3)"
+    TAG="v$BDS_VERSION"
 
     if git rev-parse "$TAG" >/dev/null 2>&1; then
         echo "Skipping $TAG (already exists)"
