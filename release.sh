@@ -1,39 +1,34 @@
 #! /usr/bin/env bash
+set -euo pipefail
 
-TOOTH_TEMPLATE=$(cat tooth.template.json)
-VERSIONS=$(cat versions.txt)
+if [[ ! -f versions.txt ]]; then
+    echo "versions.txt not found."
+    exit 0
+fi
 
-for VERSION in $VERSIONS; do
-    BDS_VERSION=$VERSION # x.y.z.w
-    TOOTH_VERSION=$(echo $BDS_VERSION | cut -d. -f1-3) # x.y.z
+git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
-    # If this version is already tagged, skip it
-    if git rev-parse v$TOOTH_VERSION >/dev/null 2>&1; then
-        echo "Skipping $TOOTH_VERSION"
+RELEASED=0
+
+while IFS= read -r BDS_VERSION || [[ -n "$BDS_VERSION" ]]; do
+    [[ -z "$BDS_VERSION" ]] && continue
+
+    # x.y.z.w -> x.y.z
+    TAG="v$(echo "$BDS_VERSION" | cut -d. -f1-3)"
+
+    if git rev-parse "$TAG" >/dev/null 2>&1; then
+        echo "Skipping $TAG (already exists)"
         continue
     fi
 
-    git reset --hard
-    git checkout -b release $(git rev-list --max-parents=0 HEAD)
+    echo "Tagging $TAG ($BDS_VERSION)..."
+    git tag -a "$TAG" -m "Bedrock Server $BDS_VERSION" HEAD
+    RELEASED=$((RELEASED + 1))
+done < versions.txt
 
-    # Replace every <BDS_VERSION> with $BDS_VERSION and every <TOOTH_VERSION> with $TOOTH_VERSION
-    TOOTH_CONTENT=$TOOTH_TEMPLATE
-    TOOTH_CONTENT=${TOOTH_CONTENT//<BDS_VERSION>/$BDS_VERSION}
-    TOOTH_CONTENT=${TOOTH_CONTENT//<TOOTH_VERSION>/$TOOTH_VERSION}
-
-    echo "$TOOTH_CONTENT" > tooth.json
-
-    # Copy README.md and logo.png from main branch
-    git checkout main README.md logo.png
-
-    # Commit and push
-    git add tooth.json README.md logo.png
-    git commit -m "Release $TOOTH_VERSION"
-    git tag v$TOOTH_VERSION
-
-    # Clean up
-    git checkout main
-    git branch -D release
-done
-
-git push --tags origin
+if [[ $RELEASED -gt 0 ]]; then
+    echo "Pushing $RELEASED new tag(s)..."
+    git push --tags origin
+else
+    echo "No new tags."
+fi
