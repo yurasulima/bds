@@ -23,6 +23,8 @@ jobs:
         run: |
           chmod +x fetch_latest.sh
           ./fetch_latest.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release new versions
         run: |
